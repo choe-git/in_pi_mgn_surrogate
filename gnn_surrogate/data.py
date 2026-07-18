@@ -5,7 +5,7 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Sequence
-
+import torch
 import h5py
 import numpy as np
 
