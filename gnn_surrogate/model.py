@@ -21,7 +21,13 @@ class TrainingAugmentation:
     inflow_context: torch.Tensor
 
 
-def make_mlp(in_dim: int, out_dim: int, hidden_dim: int = 128, hidden_layers: int = 2) -> nn.Sequential:
+def make_mlp(
+    in_dim: int,
+    out_dim: int,
+    hidden_dim: int = 128,
+    hidden_layers: int = 2,
+    layer_norm: bool = False,
+) -> nn.Sequential:
     layers: list[nn.Module] = []
     prev = in_dim
     for _ in range(hidden_layers):
@@ -29,14 +35,16 @@ def make_mlp(in_dim: int, out_dim: int, hidden_dim: int = 128, hidden_layers: in
         layers.append(nn.ReLU())
         prev = hidden_dim
     layers.append(nn.Linear(prev, out_dim))
+    if layer_norm:
+        layers.append(nn.LayerNorm(out_dim))
     return nn.Sequential(*layers)
 
 
 class GraphNetBlock(nn.Module):
     def __init__(self, latent_dim: int = 128, hidden_dim: int = 128):
         super().__init__()
-        self.edge_mlp = make_mlp(latent_dim * 3, latent_dim, hidden_dim)
-        self.node_mlp = make_mlp(latent_dim * 2, latent_dim, hidden_dim)
+        self.edge_mlp = make_mlp(latent_dim * 3, latent_dim, hidden_dim, layer_norm=True)
+        self.node_mlp = make_mlp(latent_dim * 2, latent_dim, hidden_dim, layer_norm=True)
 
     def forward(
         self,
@@ -66,8 +74,8 @@ class MeshGraphNet(nn.Module):
         message_passing_steps: int = 15,
     ):
         super().__init__()
-        self.node_encoder = make_mlp(node_input_dim, latent_dim, hidden_dim)
-        self.edge_encoder = make_mlp(edge_input_dim, latent_dim, hidden_dim)
+        self.node_encoder = make_mlp(node_input_dim, latent_dim, hidden_dim, layer_norm=True)
+        self.edge_encoder = make_mlp(edge_input_dim, latent_dim, hidden_dim, layer_norm=True)
         self.processor = nn.ModuleList(
             [GraphNetBlock(latent_dim, hidden_dim) for _ in range(message_passing_steps)]
         )

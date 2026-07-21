@@ -385,6 +385,19 @@ def main() -> None:
         }
         validation_50_rmse = rollout_rmses[VALIDATION_ROLLOUT_STEPS]
         writer.add_scalar("eval/50_rollout_rmse", validation_50_rmse, epoch + 1)
+        test_50_rmse = evaluate_rollout(
+            model,
+            test_files,
+            cache,
+            args,
+            velocity_mean,
+            velocity_std,
+            output_mean,
+            output_std,
+            device,
+            rollout_steps=VALIDATION_ROLLOUT_STEPS,
+        )
+        writer.add_scalar("test/mean-50-rmse", test_50_rmse, epoch + 1)
         if args.eval_rollout_steps > 0 and args.eval_rollout_steps not in rollout_rmses:
             rollout_rmses[args.eval_rollout_steps] = evaluate_rollout(
                 model,
@@ -428,6 +441,7 @@ def main() -> None:
             f"epoch={epoch + 1} train_rmse={sum(running) / max(len(running), 1):.4f} "
             f"val_loss={validation_loss:.4g} "
             f"val_1rmse_whole={eval_rmse:.4f} val_50rmse_whole={validation_50_rmse:.4f} "
+            f"test_mean_50rmse_whole={test_50_rmse:.4f} "
             f"val_selection_rmse={selection_rmse:.4f} best_{best_label}_whole={best_rmse:.4f} "
             f"seconds={time.time() - epoch_start:.1f}"
         )
