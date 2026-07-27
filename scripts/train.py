@@ -179,7 +179,11 @@ def train_one_sample(
     )
     pred_acceleration_norm = model(features, sample.edge_index, sample.edge_attr)
     pred_acceleration = pred_acceleration_norm * output_std + output_mean
-    pred_u = apply_velocity_boundary(augmentation.current_u + pred_acceleration, sample)
+    pred_u = apply_velocity_boundary(
+        augmentation.current_u + pred_acceleration,
+        sample,
+        clamp_inlet=False,
+    )
     mask = learned_node_mask(sample)
     loss, losses = prediction_loss(pred_u, sample, augmentation.current_u, args)
     losses["rmse"] = float(rmse_mm_s(pred_u.detach(), sample.target_u, mask).cpu())
@@ -206,7 +210,11 @@ def evaluate_one_step(model, val_files, cache, args, velocity_mean, velocity_std
                 acceleration_mode=args.acceleration_mode,
             )
             pred_acceleration = model(features, sample.edge_index, sample.edge_attr) * output_std + output_mean
-            pred_u = apply_velocity_boundary(sample.current_u + pred_acceleration, sample)
+            pred_u = apply_velocity_boundary(
+                sample.current_u + pred_acceleration,
+                sample,
+                clamp_inlet=False,
+            )
             loss, _ = prediction_loss(pred_u, sample, sample.current_u, args)
             mask = whole_geometry_mask(sample)
             rmses.append(float(rmse_mm_s(pred_u, sample.target_u, mask).detach().cpu()))
@@ -240,7 +248,11 @@ def evaluate_rollout(model, val_files, cache, args, velocity_mean, velocity_std,
                 acceleration_mode=args.acceleration_mode,
             )
             pred_acceleration = model(features, sample.edge_index, sample.edge_attr) * output_std + output_mean
-            pred_u = apply_velocity_boundary(current_u + pred_acceleration, sample)
+            pred_u = apply_velocity_boundary(
+                current_u + pred_acceleration,
+                sample,
+                clamp_inlet=False,
+            )
             mask = whole_geometry_mask(sample)
             rmses.append(float(rmse_mm_s(pred_u, sample.target_u, mask).detach().cpu()))
             prev_u, current_u = current_u, pred_u

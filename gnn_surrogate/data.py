@@ -614,7 +614,7 @@ def apply_velocity_boundary(
 
 
 def learned_node_mask(sample: GraphSample) -> torch.Tensor:
-    return ~(sample.wall_mask | sample.inlet_mask)
+    return ~sample.wall_mask
 
 
 def fluid_node_mask(sample: GraphSample) -> torch.Tensor:

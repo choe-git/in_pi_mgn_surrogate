@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="auto")
     parser.add_argument("--split", choices=["test", "val", "train"], default="test")
     parser.add_argument("--max-test-cases", type=int, default=None)
-    parser.add_argument("--clamp-inlet", action="store_true", default=True)
+    parser.add_argument("--clamp-inlet", action="store_true", default=False)
     parser.add_argument("--no-clamp-inlet", action="store_false", dest="clamp_inlet")
     return parser.parse_args()
 
