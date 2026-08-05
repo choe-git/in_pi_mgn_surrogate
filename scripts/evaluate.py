@@ -13,6 +13,7 @@ from gnn_surrogate.data import (
     resolve_named_files,
 )
 from gnn_surrogate.metrics import mean_and_sd, rmse_mm_s
+from gnn_surrogate.inlet_profile import CanonicalInletProfile
 from gnn_surrogate.model import MeshGraphNet, build_node_features, node_feature_dim
 from gnn_surrogate.train_utils import normalize_acceleration_mode, resolve_device
 
@@ -21,6 +22,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", required=True)
     parser.add_argument("--checkpoint", required=True)
+    parser.add_argument(
+        "--inlet-profile",
+        default=None,
+        help="Override the canonical inlet profile path saved in the checkpoint",
+    )
     parser.add_argument("--rollout-steps", type=int, default=50)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--split", choices=["test", "val", "train"], default="test")
@@ -143,6 +149,15 @@ def main() -> None:
     args = parse_args()
     device = resolve_device(args.device)
     model, train_args, mean, std, output_mean, output_std, ckpt = load_model(Path(args.checkpoint), device)
+    inlet_profile = None
+    if "in" in train_args["model_variant"]:
+        inlet_profile_path = args.inlet_profile or train_args.get("inlet_profile")
+        if not inlet_profile_path:
+            raise ValueError(
+                "This checkpoint requires an inlet profile; pass --inlet-profile"
+            )
+        inlet_profile = CanonicalInletProfile.load(inlet_profile_path)
+        print(f"inlet_profile={Path(inlet_profile_path).expanduser().resolve()}")
     files = list_h5_files(args.data_dir)
     split_payload = ckpt["split"]
     if args.split not in split_payload:
@@ -152,7 +167,10 @@ def main() -> None:
     if args.max_test_cases:
         evaluation_files = evaluation_files[: args.max_test_cases]
     print(f"evaluating split={args.split} cases={len(evaluation_files)} domain=whole")
-    cache = CaseCache(train_args.get("boundary_percentile", 2.0))
+    cache = CaseCache(
+        train_args.get("boundary_percentile", 2.0),
+        inlet_profile=inlet_profile,
+    )
 
     one_step_rmses = []
     rollout_rmses = []

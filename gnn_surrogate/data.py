@@ -5,10 +5,13 @@ import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import TYPE_CHECKING, Iterable, Sequence
 import torch
 import h5py
 import numpy as np
+
+if TYPE_CHECKING:
+    from .inlet_profile import CanonicalInletProfile
 
 
 VELOCITY_START_KEY = 2
@@ -530,8 +533,13 @@ def one_hot_node_type(node_type: torch.Tensor) -> torch.Tensor:
 
 
 class CaseCache:
-    def __init__(self, boundary_percentile: float = 2.0):
+    def __init__(
+        self,
+        boundary_percentile: float = 2.0,
+        inlet_profile: CanonicalInletProfile | None = None,
+    ):
         self.boundary_percentile = boundary_percentile
+        self.inlet_profile = inlet_profile
         self._cache: dict[Path, dict[str, np.ndarray]] = {}
         self._velocity_cache: dict[Path, np.ndarray] = {}
         self._tensor_cache: dict[tuple[Path, str], dict[str, object]] = {}
@@ -645,7 +653,10 @@ def load_graph_sample(
     prev_u_np = cache.velocity(path, time_index - 1)
     current_u_np = cache.velocity(path, time_index)
     target_u_np = cache.velocity(path, time_index + 1)
-    context = inflow_context(target_u_np, static["inlet_mask"])
+    if cache.inlet_profile is None:
+        context = inflow_context(target_u_np, static["inlet_mask"])
+    else:
+        context = cache.inlet_profile.condition_statistics(time_index + 1)
     n = current_u_np.shape[0]
 
     prev_u = torch.as_tensor(prev_u_np, dtype=torch.float32, device=device)

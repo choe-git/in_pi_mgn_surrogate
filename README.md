@@ -7,10 +7,18 @@ https://www.nature.com/articles/s41746-026-02404-z
 
 arguments for train, val, test are as below
 
+Build the canonical inlet profile once before training:
+
+>PYTHONPATH=$PWD python -m gnn_surrogate.inlet_profile build \
+  --data-dir 04_npj_GNN/coarse_dataset \
+  --split-csv split.csv \
+  --output gnn_surrogate/inlet_profile.npz
+
 ## train
 >PYTHONPATH=$PWD python scripts/train.py \
   --data-dir 04_npj_GNN/coarse_dataset \
-  --split-csv /path/to/split.csv \
+  --split-csv split.csv \
+  --inlet-profile gnn_surrogate/inlet_profile.npz \
   --output-dir "output_dir" \
   --model-variant in-pi-mgn \
   --epochs 200 \
@@ -30,6 +38,7 @@ arguments for train, val, test are as below
 >PYTHONPATH=$PWD python scripts/evaluate.py \
   --data-dir 04_npj_GNN/coarse_dataset \
   --checkpoint "output_dir/log_dir"/best.pt \
+  --inlet-profile gnn_surrogate/inlet_profile.npz \
   --split val \
   --rollout-steps 50 \
   --device cuda
@@ -38,6 +47,7 @@ arguments for train, val, test are as below
 >PYTHONPATH=$PWD python scripts/evaluate.py \
   --data-dir 04_npj_GNN/coarse_dataset \
   --checkpoint "output_dir/log_dir"/best.pt \
+  --inlet-profile gnn_surrogate/inlet_profile.npz \
   --split test \
   --rollout-steps 50 \
   --device cuda

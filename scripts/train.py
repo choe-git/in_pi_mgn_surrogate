@@ -21,6 +21,7 @@ from gnn_surrogate.data import (
     split_files_three_way,
 )
 from gnn_surrogate.metrics import rmse_mm_s
+from gnn_surrogate.inlet_profile import CanonicalInletProfile, default_output_path
 from gnn_surrogate.model import (
     MeshGraphNet,
     augment_training_inputs,
@@ -52,6 +53,11 @@ def parse_args() -> argparse.Namespace:
         "--split-csv",
         required=True,
         help="CSV with data_name,train,val,test binary one-hot columns",
+    )
+    parser.add_argument(
+        "--inlet-profile",
+        default=str(default_output_path()),
+        help="Canonical inlet profile .npz used by in-mgn variants",
     )
     parser.add_argument("--model-variant", choices=["mgn", "pi-mgn", "in-mgn", "in-pi-mgn"], default="in-pi-mgn")
     parser.add_argument("--epochs", type=int, default=20)
@@ -268,6 +274,10 @@ def evaluate_rollout(model, val_files, cache, args, velocity_mean, velocity_std,
 def main() -> None:
     args = parse_args()
     set_seed(args.seed)
+    inlet_profile = None
+    if "in" in args.model_variant:
+        inlet_profile = CanonicalInletProfile.load(args.inlet_profile)
+        print(f"inlet_profile={Path(args.inlet_profile).expanduser().resolve()}")
     output_dir = Path(args.output_dir)
     output_dir = output_dir / datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -298,7 +308,7 @@ def main() -> None:
         f"train={len(train_files)} val={len(val_files)} test={len(test_files)}"
     )
 
-    cache = CaseCache(args.boundary_percentile)
+    cache = CaseCache(args.boundary_percentile, inlet_profile=inlet_profile)
     train_index = make_training_index(train_files)
     if args.max_train_samples:
         train_index = train_index[: args.max_train_samples]
