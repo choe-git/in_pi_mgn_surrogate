@@ -10,6 +10,7 @@ arguments for train, val, test are as below
 ## train
 >PYTHONPATH=$PWD python scripts/train.py \
   --data-dir 04_npj_GNN/coarse_dataset \
+  --split-csv /path/to/split.csv \
   --output-dir "output_dir" \
   --model-variant in-pi-mgn \
   --epochs 200 \
@@ -22,8 +23,6 @@ arguments for train, val, test are as below
   --temporal-noise-correlation 0.8 \
   --spatial-noise-smoothing-steps 2 \
   --magnitude-jitter-std 0.02 \
-  --val-count 5 \
-  --test-count 5 \
   --best-rmse-steps 50 \
   --device cuda
 

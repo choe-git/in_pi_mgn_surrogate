@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import math
 from dataclasses import dataclass
@@ -728,8 +729,64 @@ def split_files_three_way(
     test_count: int = 5,
     val_files: Sequence[str] | None = None,
     test_files: Sequence[str] | None = None,
+    split_csv: str | Path | None = None,
 ) -> tuple[list[Path], list[Path], list[Path]]:
     files = list(files)
+    if split_csv is not None:
+        csv_path = Path(split_csv).expanduser().resolve()
+        if not csv_path.is_file():
+            raise FileNotFoundError(f"Split CSV does not exist: {csv_path}")
+
+        by_name = {path.name: path for path in files}
+        by_case = {case_id(path): path for path in files}
+        assignments: dict[Path, str] = {}
+        with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            required_columns = {"data_name", "train", "val", "test"}
+            columns = set(reader.fieldnames or [])
+            missing_columns = sorted(required_columns - columns)
+            if missing_columns:
+                raise ValueError(f"Split CSV is missing columns: {missing_columns}")
+
+            for row_number, row in enumerate(reader, start=2):
+                data_name = (row.get("data_name") or "").strip()
+                key = Path(data_name).name
+                path = by_name.get(key) or by_case.get(key)
+                if path is None:
+                    raise KeyError(f"Unknown data_name at CSV row {row_number}: {data_name}")
+
+                resolved = path.resolve()
+                if resolved in assignments:
+                    raise ValueError(f"Duplicate data_name at CSV row {row_number}: {data_name}")
+
+                flags = {
+                    name: (row.get(name) or "").strip()
+                    for name in ("train", "val", "test")
+                }
+                if any(value not in {"0", "1"} for value in flags.values()):
+                    raise ValueError(
+                        f"CSV row {row_number} split flags must be binary 0 or 1: {flags}"
+                    )
+                selected = [name for name, value in flags.items() if value == "1"]
+                if len(selected) != 1:
+                    raise ValueError(
+                        f"CSV row {row_number} must select exactly one of train,val,test: {flags}"
+                    )
+                assignments[resolved] = selected[0]
+
+        missing_files = sorted(path.name for path in files if path.resolve() not in assignments)
+        if missing_files:
+            raise ValueError(f"Split CSV does not assign every loaded file: {missing_files}")
+
+        split = {
+            name: sorted(path for path in files if assignments[path.resolve()] == name)
+            for name in ("train", "val", "test")
+        }
+        if any(not split[name] for name in split):
+            counts = {name: len(paths) for name, paths in split.items()}
+            raise ValueError(f"CSV train/val/test splits must all be non-empty: {counts}")
+        return split["train"], split["val"], split["test"]
+
     rng = np.random.default_rng(seed)
 
     val = resolve_named_files(files, val_files, "validation") if val_files else []
@@ -775,8 +832,11 @@ def split_payload(
     val: Sequence[Path],
     test: Sequence[Path],
     seed: int | None = None,
+    split_csv: str | Path | None = None,
 ) -> dict[str, object]:
     return {
+        "source": "csv" if split_csv is not None else "seeded_random",
+        "split_csv": str(Path(split_csv).expanduser().resolve()) if split_csv is not None else None,
         "seed": seed,
         "counts": {
             "train": len(train),
@@ -795,8 +855,9 @@ def save_split_three_way(
     val: Sequence[Path],
     test: Sequence[Path],
     seed: int | None = None,
+    split_csv: str | Path | None = None,
 ) -> dict[str, object]:
-    payload = split_payload(train, val, test, seed)
+    payload = split_payload(train, val, test, seed, split_csv)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return payload
 

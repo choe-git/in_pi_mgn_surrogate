@@ -48,6 +48,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", required=True)
     parser.add_argument("--output-dir", required=True)
+    parser.add_argument(
+        "--split-csv",
+        required=True,
+        help="CSV with data_name,train,val,test binary one-hot columns",
+    )
     parser.add_argument("--model-variant", choices=["mgn", "pi-mgn", "in-mgn", "in-pi-mgn"], default="in-pi-mgn")
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--message-passing-steps", type=int, default=15)
@@ -277,16 +282,21 @@ def main() -> None:
         test_count=args.test_count,
         val_files=args.val_files,
         test_files=args.test_files,
+        split_csv=args.split_csv,
     )
     split = save_split_three_way(
         output_dir / "split.json",
         train_files,
         val_files,
         test_files,
-        seed=args.seed,
+        seed=None,
+        split_csv=args.split_csv,
     )
     save_json(output_dir / "args.json", vars(args))
-    print(f"seed={args.seed} split train={len(train_files)} val={len(val_files)} test={len(test_files)}")
+    print(
+        f"split_csv={Path(args.split_csv).expanduser().resolve()} "
+        f"train={len(train_files)} val={len(val_files)} test={len(test_files)}"
+    )
 
     cache = CaseCache(args.boundary_percentile)
     train_index = make_training_index(train_files)
